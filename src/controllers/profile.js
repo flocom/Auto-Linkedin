@@ -61,91 +61,47 @@ class LinkedinProfile {
    * @param {string} connectionMessage - Message that will send with connection request
    * @param {number} waitMs - Wait milliseconds after opening profile (default is coming from linkedin client)
    */
-  async connectionRequest(linkedinClient, connectionMessage, waitMs) {
-    if (!waitMs) waitMs = randomNumber(linkedinClient.linkedinSettings.COOLDOWN_MIN * 1000, linkedinClient.linkedinSettings.COOLDOWN_MAX * 1000)
-    linkedinClient.loggerFunction('[TASK] Conection request: ' + this.details.name + ' (waitMs: ' + waitMs.toFixed(0) + ')');
+    async connectionRequest(linkedinClient, connectionMessage, waitMs) {
+    if (!waitMs) waitMs = randomNumber(linkedinClient.linkedinSettings.COOLDOWN_MIN * 1000, linkedinClient.linkedinSettings.COOLDOWN_MAX * 1000);
+    linkedinClient.loggerFunction('[TASK] Connection request: ' + this.details.name + ' (waitMs: ' + waitMs.toFixed(0) + ')');
     
-    const browser = await linkedinClient.getBrowser()
-    const page = await browser.newPage()
-    await page.goto(linkedinClient.linkedinSettings.MAIN_ADDRESS + 'in/' + this.details.id)
-
-    await page.waitForSelector('.scaffold-layout__main > section > div:nth-child(2) > div > div > button')
-
-    let buttonText = await page.evaluate(async () => {
-      await new Promise(r => setTimeout(r, 500));
-
-      //* If there is extra div remove it
-      if (document.querySelector('.scaffold-layout__main > section > div:nth-child(2) > div:last-child').classList[0] === 'display-flex') document.querySelector('.scaffold-layout__main > section > div:nth-child(2) > div:last-child').remove()
-
-      let parentDiv = document.querySelector('.scaffold-layout__main > section > div:nth-child(2) > div:last-child')
-      return parentDiv.querySelector('button').textContent.trim()
-    })
-
-    const firstButtonisMessage = (buttonText === linkedinClient.linkedinSettings.PROFILEBUTTON_MESSAGE)
-    if (firstButtonisMessage) {
-      await page.close()
-      throw new Error('  Already connected or connection already sent.')
-    }
-
-    const firstButtonisConnect = (buttonText === linkedinClient.linkedinSettings.PROFILEBUTTON_CONNECT)
-    if (firstButtonisConnect) {
-      let connectButtonQuery = '.scaffold-layout__main > section > div:nth-child(2) > div:last-child > div > button'
-      await page.waitForSelector(connectButtonQuery);
-      await page.click(connectButtonQuery);
+    const browser = await linkedinClient.getBrowser();
+    const page = await browser.newPage();
+    await page.goto(linkedinClient.linkedinSettings.MAIN_ADDRESS + 'in/' + this.details.id);
   
-      let actionBarQuery = '#artdeco-modal-outlet > div > div > .artdeco-modal__actionbar'
-      await page.waitForSelector(actionBarQuery);
-      if (!connectionMessage) {
-          await page.click(actionBarQuery + ' > button:nth-child(2)');
-      } else {
-          await page.click(actionBarQuery + ' > button:first-child');
-  
-          await page.waitForSelector('#custom-message');
-          await page.focus('#custom-message');
-          await page.type('#custom-message', connectionMessage);
-  
-          await page.focus('.artdeco-modal__actionbar > button:nth-child(2)');
-          await page.click('.artdeco-modal__actionbar > button:nth-child(2)');
-      }
-      await new Promise(r => setTimeout(r, 500));
-  
-      await new Promise(r => setTimeout(r, waitMs));
-      await page.close()
-      return linkedinClient.loggerFunction('  Connection request sent.')
-    }
-
-    const firstButtonisFollow = (buttonText === linkedinClient.linkedinSettings.PROFILEBUTTON_FOLLOW)
-    if (firstButtonisFollow) {
-      let moreButtonQuery = '.scaffold-layout__main > section > div:nth-child(2) > div > div > .artdeco-dropdown'
-      await page.waitForSelector(moreButtonQuery)
-      await page.click(moreButtonQuery)
-
-      await new Promise(r => setTimeout(r, 500));
-
-      let connectButtonQuery = '.scaffold-layout__main > section > div:nth-child(2) > div > div > div:last-child > div > div > ul > li:nth-child(3) > div'
-      await page.waitForSelector(connectButtonQuery);
-      await page.click(connectButtonQuery);
-  
-      let actionBarQuery = '#artdeco-modal-outlet > div > div > .artdeco-modal__actionbar'
-      await page.waitForSelector(actionBarQuery);
-      if (!connectionMessage) {
-          await page.click(actionBarQuery + ' > button:nth-child(2)');
-      } else {
-          await page.click(actionBarQuery + ' > button:first-child');
-  
-          await page.waitForSelector('#custom-message');
-          await page.focus('#custom-message');
-          await page.type('#custom-message', connectionMessage);
-  
-          await page.focus('.artdeco-modal__actionbar > button:nth-child(2)');
-          await page.click('.artdeco-modal__actionbar > button:nth-child(2)');
-      }
+    // Selector for the connect button based on class
+    console.log("Attempting to locate the connect button...");
+    await page.waitForSelector('button.artdeco-button.artdeco-button--2.artdeco-button--primary.pvs-profile-actions__action', { visible: true });
+    const connectButton = await page.$('button.artdeco-button.artdeco-button--2.artdeco-button--primary.pvs-profile-actions__action');
+    
+    if (connectButton) {
+      console.log("Connect button found, attempting to click...");
+      await connectButton.click();
+      console.log("Successfully clicked the connect button.");
       
+      // Check for the appearance of the confirmation modal
+      let actionBarQuery = '#artdeco-modal-outlet > div > div > .artdeco-modal__actionbar';
+      await page.waitForSelector(actionBarQuery);
+  
+      // Add the connection message if provided
+      if (!connectionMessage) {
+        await page.click(actionBarQuery + ' > button:nth-child(2)');
+      } else {
+        await page.click(actionBarQuery + ' > button:first-child');
+        await page.waitForSelector('#custom-message');
+        await page.focus('#custom-message');
+        await page.type('#custom-message', connectionMessage);
+        await page.focus('.artdeco-modal__actionbar > button:nth-child(2)');
+        await page.click('.artdeco-modal__actionbar > button:nth-child(2)');
+      }
+  
+      console.log("Connection request sent.");
       await new Promise(r => setTimeout(r, waitMs));
-      await page.close()
-      return linkedinClient.loggerFunction('  Connection request sent.')
+      await page.close();
+      return linkedinClient.loggerFunction('  Connection request sent.');
+    } else {
+      console.log("Error: Connect button not found.");
     }
-
   }
 
   /** Send message to a profile
